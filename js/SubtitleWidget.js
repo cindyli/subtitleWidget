@@ -52,9 +52,7 @@ https://github.com/fluid-project/infusion/raw/master/Infusion-LICENSE.txt
                 }
             }
         },
-        preInitFunction: "fluid.videoPlayer.preInit",
-        postInitFunction: "fluid.videoPlayer.postInit",
-        finalInitFunction: "fluid.videoPlayer.finalInit",
+        finalInitFunction: "fluid.subtitleWidget.finalInit",
         events: {
             onReady: null,
         },
@@ -73,136 +71,16 @@ https://github.com/fluid-project/infusion/raw/master/Infusion-LICENSE.txt
             turnTranscriptsOff: "Turn Transcripts OFF"
         },
         model: {
-            currentTracks: {
-                captions: [],
-                transcripts: []
-            },
-            currentTime: 0,
-            totalTime: 0,
-            buffered: 0,
-            displayCaptions: false,
-            displayTranscripts: false,
-            fullscreen: false,
-            volume: 60,
-            muted: false,
-            canPlay: false
         },
         templates: {
-            videoPlayer: {
+            subtitleWidget: {   // ToDo: get rid of "subtitleWidget" key as subtitle widget component only has one template
                 forceCache: true,
                 href: "../html/SubtitleWidget_template.html"
             }
         }
     });
 
-    var bindKeyboardControl = function (that) {
-        var opts = {
-            additionalBindings: [{
-                modifier: that.options.keyBindings.play.modifier,
-                key: that.options.keyBindings.play.key,
-                activateHandler: that.play
-            }, {
-                modifier: that.options.keyBindings.fullscreen.modifier,
-                key: that.options.keyBindings.fullscreen.key,
-                activateHandler: function () {
-                    that.applier.fireChangeRequest({
-                        path: "fullscreen",
-                        value: !that.model.fullscreen
-                    });
-                }
-            }, {
-                modifier: that.options.keyBindings.captions.modifier,
-                key: that.options.keyBindings.captions.key,
-                activateHandler: function () {
-                    that.applier.fireChangeRequest({
-                        path: "displayCaptions",
-                        value: !that.model.displayCaptions
-                    });
-                }
-            }, {
-                modifier: that.options.keyBindings.transcripts.modifier,
-                key: that.options.keyBindings.transcripts.key,
-                activateHandler: function () {
-                    that.applier.fireChangeRequest({
-                        path: "displayTranscripts",
-                        value: !that.model.states.displayTranscripts
-                    });
-                }
-            }, {
-                modifier: that.options.keyBindings.volumePlus.modifier,
-                key: that.options.keyBindings.volumePlus.key,
-                activateHandler: function() {
-                    that.applier.fireChangeRequest( {
-                        path: "volume",
-                        value: that.model.volume + 10
-                    })
-                }
-            }, {
-                modifier: that.options.keyBindings.volumeMinus.modifier,
-                key: that.options.keyBindings.volumeMinus.key,
-                activateHandler: function() {
-                    that.applier.fireChangeRequest( {
-                        path: "volume",
-                        value: that.model.volume - 10
-                    })
-                }
-            }, {
-                modifier: that.options.keyBindings.forward.modifier,
-                key: that.options.keyBindings.forward.key,
-                activateHandler: that.incrTime
-            }, {
-                modifier: that.options.keyBindings.rewind.modifier,
-                key: that.options.keyBindings.rewind.key,
-                activateHandler: that.decrTime
-            }]
-        };
-        var video = that.locate("video");
-        video.fluid("tabbable");
-        video.fluid("activatable", [that.play, opts]);
-    };
-
-    var showControllers = function (that) {
-        that.locate("controllers").stop(false, true).slideDown();
-    };
-
-    var hideControllers = function (that) {
-        that.locate("controllers").stop(false, true).delay(500).slideUp();
-    };
-
-    var bindVideoPlayerDOMEvents = function (that) {
-        var video = that.locate("video");
-        video.click(function (ev) {
-            ev.preventDefault();
-            that.play();
-        });
-
-        that.locate("videoPlayer").mouseenter(function () {
-            showControllers(that);
-        });
-
-        that.container.mouseleave(function () {
-            hideControllers(that);
-        });
-
-        video.focus(function () {
-            showControllers(that);
-        });
-
-        video.bind("loadedmetadata", function () {
-            that.resize();
-            
-            bindKeyboardControl(that);
-        });
-    };
-
-    var bindVideoPlayerModel = function (that) {
-        that.applier.modelChanged.addListener("fullscreen", that.fullscreen);
-        that.applier.modelChanged.addListener("canPlay", function () {
-            that.events.onViewReady.fire();
-        });
-    };
-
-    fluid.videoPlayer.produceTree = function (that) {
+    fluid.subtitleWidget.produceTree = function (that) {
         var tree = {};
         
         if (fluid.hasFeature("fluid.browser.html5") && that.options.controls === "native") {
@@ -216,90 +94,19 @@ https://github.com/fluid-project/infusion/raw/master/Infusion-LICENSE.txt
                 }]
             };
         } else if (that.canRenderMedia(that.options.video.sources)) {
-            // Keep the selector to render "fluid.videoPlayer.media"
+            // Keep the selector to render "fluid.subtitleWidget.media"
             that.options.selectorsToIgnore.push("video");
         }
         
-        // Keep the selector to render "fluid.videoPlayer.controllers"
+        // Keep the selector to render "fluid.subtitleWidget.controllers"
         if (that.canRenderControllers(that.options.controls)) {
             that.options.selectorsToIgnore.push("controllers");
         }
         
         return tree;
     };
-    
-    fluid.videoPlayer.addDefaultKind = function (tracks, defaultKind) {
-        fluid.each(tracks, function(track) {
-            if (!track.kind) {
-                track.kind = defaultKind;
-            }
-        });
-    };
 
-    fluid.videoPlayer.preInit = function (that) {
-        fluid.each(that.options.defaultKinds, function(defaultKind, index) {
-            fluid.videoPlayer.addDefaultKind(fluid.get(that.options.video, index), defaultKind);  
-        });
-    
-        that.fullscreen = function () {
-            var video = that.locate("video");
-            var videoEl = video[0];
-            
-            if (that.model.fullscreen === true) {
-                if (videoEl.mozRequestFullScreen) {
-                    videoEl.mozRequestFullScreen();
-                } else if (videoEl.webkitEnterFullScreen) {
-                    videoEl.webkitEnterFullScreen();
-                }
-                // else {
-                //      TODO: Fallback to other versions of browsers
-                // }
-            }
-        };
-    };
-
-    fluid.videoPlayer.postInit = function (that) {
-        // TODO: declarative syntax for this in framework
-        // note that the "mega-model" is shared throughout all components - morally, this should go into the 
-        // volume control component, but it is best to get at the single model + applier as early as possible
-        that.applier.guards.addListener({path: "volume", transactional: true}, fluid.linearRangeGuard(0, 100));
-   
-        that.canRenderControllers = function (controlsType) {
-            return fluid.hasFeature("fluid.browser.html5") && controlsType === "custom";
-        };
-        
-        that.canRenderMedia = function (videoSource) {
-            return videoSource;
-        };
-        
-        that.play = function (ev) {
-            that.applier.fireChangeRequest({
-                "path": "play",
-                "value": !that.model.play
-            });
-        };
-
-        that.incrTime = function () {
-            that.events.onStartScrub.fire();
-            if (that.model.currentTime < that.model.totalTime) {
-                var newVol = that.model.currentTime + that.model.totalTime * 0.05;
-                that.events.onScrub.fire(newVol <= that.model.totalTime ? newVol : that.model.totalTime);
-            }
-            that.events.afterScrub.fire();
-        };
-
-        that.decrTime = function () {
-            that.events.onStartScrub.fire();
-            
-            if (that.model.currentTime > 0) {
-                var newVol = that.model.currentTime - that.model.totalTime * 0.05;
-                that.events.onScrub.fire(newVol >= 0 ? newVol : 0);
-            }
-            that.events.afterScrub.fire();
-        };
-    };
-    
-    fluid.videoPlayer.finalInit = function (that) {
+    fluid.subtitleWidget.finalInit = function (that) {
         that.container.attr("role", "application");
 
         // Render each media source with its custom renderer, registered by type.
@@ -315,93 +122,24 @@ https://github.com/fluid-project/infusion/raw/master/Infusion-LICENSE.txt
                         ", errorThrown: " + res[key].fetchError.errorThrown);
                     that.events.onTemplateLoadError.fire(res[key].href);
                     fetchFailed = true;
-                } else if (key === "videoPlayer") {
-                    if (!fluid.hasFeature("fluid.browser.html5")) {
-                        that.events.onOldBrowserDetected.fire($.browser);
-                    }
-                    that.container.append(res[key].resourceText);
-                    that.refreshView();
-                    //if we're on an old browser there's no point in linking all the evets as they won't exist...
-                    if (fluid.hasFeature("fluid.browser.html5")) {
-                        bindVideoPlayerDOMEvents(that);
-                        //create all the listeners to the model
-                        bindVideoPlayerModel(that);
-                    }
+                } else if (key === "subtitleWidget") { // ToDo: remove the "else if" when "subtitleWidget" key is removed
+                    // ToDo: create the wrapper for subtitle widget template + the video (that.container)
                 }
             }
 
-            if (!fetchFailed) {
-                that.events.onTemplateReady.fire();
-
-                if (that.canRenderMedia(that.options.video.sources)) {
-                    that.events.onCreateMediaReady.fire();
-                }
-                if (that.canRenderControllers(that.options.controls)) {
-                    that.events.onCreateControllersReady.fire();
-                }
-                // TODO: Once we have a non-html5 fall-back for captions
-                //    (i.e. captionator and/or mediaelement.js), we will
-                //    not need to do this.
-                if (fluid.hasFeature("fluid.browser.html5")) {
-                    that.events.onHTML5BrowserDetected.fire();
-                }
-            }
-
-            that.locate("controllers").hide();
             that.events.onReady.fire(that);
         });
         
         return that;
     };
         
-    //returns the time in format hh:mm:ss from a time in seconds 
-    fluid.videoPlayer.formatTime = function (time) {
-        var fullTime = Math.floor(time);
-        var sec = fullTime % 60;
-        sec = sec < 10 ? "0" + sec : sec;
-        fullTime = Math.floor(fullTime / 60);
-        var min = fullTime % 60;
-        fullTime = Math.floor(fullTime / 60);
-        var ret = "";
-        if (fullTime !== 0) {
-            ret = fullTime + ":";
-        }
-        return ret + min + ":" + sec;
-    };
-    
-    // Function which modifies containers and their sizes
-    fluid.videoPlayer.resize = function (that) {
-        var video = that.locate("video");
-        var videoPlayer = that.locate("videoPlayer");
-        var overlay = that.locate("overlay");
-        
-        // Get the video sizes first
-        // ToDo: A video wrapper container is used for video scaling. The video width/height are determined by the wrapper container
-        // rather then the video itself. This solution needs a re-consideration once we decide on scaling the video through css or
-        // API.
-//        var videoWidth = video[0].videoWidth;
-//        var videoHeight = video[0].videoHeight;
-        var videoWidth = video.width();
-        var videoHeight = video.height();
-
-        // Set height on the controller area. To make overlay to show up exactly at the bottom of the video regardless to UIO settings
-        videoPlayer.css({height: videoHeight});
-        
-        // Set the width of the overlay to be the width of the video, otherwise, the controller bar spreads into transcript area
-        overlay.css({width: videoWidth});
-        
-        // Save the video width/height in the model so they are accessible by the sub-components
-        that.model.videoWidth = videoWidth;
-        that.model.videoHeight = videoHeight;
-    };
-
     /*********************************************************************************
      * Event Binder:                                                                 *
      * Shared by all video player component whenever an event binder component is    *
      * needed                                                                        *
      *********************************************************************************/
         
-    fluid.defaults("fluid.videoPlayer.eventBinder", {
+    fluid.defaults("fluid.subtitleWidget.eventBinder", {
         gradeNames: ["fluid.eventedComponent", "autoInit"]
     });
 
@@ -409,7 +147,7 @@ https://github.com/fluid-project/infusion/raw/master/Infusion-LICENSE.txt
      * Demands blocks for event binding components                                   *
      *********************************************************************************/
     
-    fluid.demands("mediaEventBinder", ["fluid.videoPlayer.media", "fluid.videoPlayer"], {
+    fluid.demands("mediaEventBinder", ["fluid.subtitleWidget.media", "fluid.subtitleWidget"], {
         options: {
             listeners: {
                 "{videoPlayer}.events.onScrub": "{media}.setTime",
